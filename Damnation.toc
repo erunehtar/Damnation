@@ -1,0 +1,9 @@
+## Interface: 11303
+## Title: Damnation
+## Notes: Blessing of Salvation management for Alliance tanks
+## Version: 1.2.2
+## Author: Deathicon
+## License: MIT
+## SavedVariablesPerCharacter: Damnation_Options
+
+Damnation.lua
