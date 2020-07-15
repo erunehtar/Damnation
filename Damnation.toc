@@ -1,9 +1,21 @@
-## Interface: 11303
+## Interface: 11305
 ## Title: Damnation
 ## Notes: Blessing of Salvation management for Alliance tanks
-## Version: 1.2.2
+## Version: 2.0.0
 ## Author: Deathicon
 ## License: MIT
-## SavedVariablesPerCharacter: Damnation_Options
+## SavedVariables: DamnationDB
 
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+
+Embeds.xml
 Damnation.lua
