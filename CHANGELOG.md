@@ -4,13 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.4] - 2022-05-18
+## [2.1.1] - 2022-05-18
 ### Added
-- Added support for TBC spell IDs
+- Added support for both classic and TBC
 
 ### Changed
 - Update interface version to 1.14.3 for classic, and 2.5.4 for TBC
 - Removed min interface version
+
+## [2.1.0] - 2021-05-19
+### Changed
+- Added new ranks of intellect, spirit and wisdom buffs.
+- Update interface and min interface version to 2.5.1 (The Burning Crusade Classic)
 
 ## [2.0.3] - 2020-12-28
 ### Added

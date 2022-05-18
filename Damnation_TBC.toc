@@ -1,7 +1,7 @@
 ## Interface: 20504
 ## Title: Damnation
 ## Notes: Blessing of Salvation management for tanks
-## Version: 2.0.4
+## Version: 2.1.1
 ## Author: Robert Goulet
 ## SavedVariables: DamnationDB
 

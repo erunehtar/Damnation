@@ -233,20 +233,3 @@ function Damnation:GetOptionsTable()
         }
     }
 end
-
-function dump(o)
-   if type(o) == 'table' then
-      local s = '{ '
-      for k,v in pairs(o) do
-         if type(k) ~= 'number' then k = '"'..k..'"' end
-         d = dump(v)
-         if d == nil then
-            d = "nil"
-         end
-         s = s .. '['..k..'] = ' .. d .. ','
-      end
-      print(s .. '} ')
-   else
-      print(tostring(o))
-   end
-end
