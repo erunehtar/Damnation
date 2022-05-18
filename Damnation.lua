@@ -1,4 +1,7 @@
-local Damnation = LibStub("AceAddon-3.0"):NewAddon("Damnation", "AceEvent-3.0")
+local addonName, addon = ...
+addon.Damnation = LibStub("AceAddon-3.0"):NewAddon("Damnation", "AceEvent-3.0")
+
+local Damnation = addon.Damnation
 
 local COLOR_RED = "|cFFFF0000"
 local COLOR_GREEN = "|cFF1EFF00"
@@ -16,39 +19,6 @@ local defaults = {
         spirit = false,
         wisdom = false
     }
-}
-
-local SalvationSpellIds = {
-    1038, -- Blessing of Salvation
-    25895 -- Greater Blessing of Salvation
-}
-
-local IntellectSpellIds = {
-    1459, -- Arcane Intellect (Rank 1)
-    1460, -- Arcane Intellect (Rank 2)
-    1461, -- Arcane Intellect (Rank 3)
-    10156, -- Arcane Intellect (Rank 4)
-    10157, -- Arcane Intellect (Rank 5)
-    23028 -- Arcane Brilliance
-}
-
-local SpiritSpellIds = {
-    14752, -- Divine Spirit (Rank 1)
-    14818, -- Divine Spirit (Rank 2)
-    14819, -- Divine Spirit (Rank 3)
-    27841, -- Divine Spirit (Rank 4)
-    27681 -- Prayer of Spirit
-}
-
-local WisdomSpellIds = {
-    19742, -- Blessing of Wisdom (Rank 1)
-    19850, -- Blessing of Wisdom (Rank 2)
-    19852, -- Blessing of Wisdom (Rank 3)
-    19853, -- Blessing of Wisdom (Rank 4)
-    19854, -- Blessing of Wisdom (Rank 5)
-    25290, -- Blessing of Wisdom (Rank 6)
-    25894, -- Greater Blessing of Wisdom (Rank 1)
-    25918 -- Greater Blessing of Wisdom (Rank 2)
 }
 
 function Damnation:OnInitialize()
@@ -137,15 +107,15 @@ function Damnation:ManageBuffs()
     end
 
     if self.db.profile.mode == "on" or (self.db.profile.mode == "auto" and self:IsTanking()) then
-        for k,v in ipairs(SalvationSpellIds) do self:RemoveBuff(v) end
+        for k,v in ipairs(self.SalvationSpellIds) do self:RemoveBuff(v) end
         if self.db.profile.intellect then
-            for k,v in ipairs(IntellectSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.IntellectSpellIds) do self:RemoveBuff(v) end
         end
         if self.db.profile.spirit then
-            for k,v in ipairs(SpiritSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.SpiritSpellIds) do self:RemoveBuff(v) end
         end
         if self.db.profile.wisdom then
-            for k,v in ipairs(WisdomSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.WisdomSpellIds) do self:RemoveBuff(v) end
         end
     end
 end

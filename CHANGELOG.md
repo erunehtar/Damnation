@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2022-05-18
+### Added
+- Added support for TBC spell IDs
+
+### Changed
+- Update interface version to 1.14.3 for classic, and 2.5.4 for TBC
+- Removed min interface version
+
 ## [2.0.3] - 2020-12-28
 ### Added
 - Added min interface version 1.13.1

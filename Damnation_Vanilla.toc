@@ -1,9 +1,8 @@
-## Interface: 11306
-## X-Min-Interface: 11301
+## Interface: 11403
 ## Title: Damnation
-## Notes: Blessing of Salvation management for Alliance tanks
-## Version: 2.0.3
-## Author: Deathicon
+## Notes: Blessing of Salvation management for tanks
+## Version: 2.0.4
+## Author: Robert Goulet
 ## SavedVariables: DamnationDB
 
 Libs\LibStub\LibStub.lua
@@ -18,3 +17,4 @@ Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 
 Damnation.lua
+DamnationData.lua
