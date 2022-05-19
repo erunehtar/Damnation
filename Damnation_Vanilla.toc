@@ -1,8 +1,8 @@
 ## Interface: 11403
 ## Title: Damnation
 ## Notes: Blessing of Salvation management for tanks
-## Version: 2.1.1
-## Author: Robert Goulet
+## Version: 2.1.2
+## Author: Erunehtar
 ## SavedVariables: DamnationDB
 
 Libs\LibStub\LibStub.lua
