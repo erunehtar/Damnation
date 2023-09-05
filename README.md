@@ -1,6 +1,6 @@
 # Damnation
 ### Blessing of Salvation management for tanks
-A lightweight addon that removes Blessing of Salvation automatically and other unnecessary buffs for tanking. Clearing Blessing of Salvation manually, especially from Paladins who do not announce it, can drive one insane and can make tanking miserable.
+A lightweight addon that removes Blessing of Salvation automatically and other unnecessary buffs for tanking. Clearing Blessing of Salvation manually, especially from Paladins who do not announce it, can drive one insane and can make tanking miserable.
 
 ## Features
 
