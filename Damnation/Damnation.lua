@@ -35,6 +35,8 @@ function Damnation:OnInitialize()
 end
 
 function Damnation:OnEnable()
+    self.className = select(2, UnitClass("player"))
+    self.canTank = self.className == "WARRIOR" or self.className == "DRUID" or self.className == "PALADIN"
     self:SetMode(self.db.profile.mode)
 end
 
@@ -44,80 +46,105 @@ end
 function Damnation:SetMode(mode)
     self:UnregisterEvent("UNIT_AURA")
     self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-    if mode == "on" or (mode == "auto" and self:CanTank()) then
+    if mode == "on" or (mode == "auto" and self.canTank) then
         self:RegisterEvent("UNIT_AURA")
         self:RegisterEvent("PLAYER_REGEN_ENABLED")
         self:ManageBuffs()
     end
 end
 
-function Damnation:CanTank()
-    local _, className = UnitClass("player")
-    if className == "WARRIOR" then
-        return true, className
-    elseif className == "DRUID" then
-        return true, className
-    elseif className == "PALADIN" then
-        return true, className
-    end
-    return false, className
-end
-
 function Damnation:IsTanking()
-    local canTank, className = self:CanTank()
-    if not canTank then
+    if not self.canTank then
         return false
     end
 
-    if className == "WARRIOR" then
+    if self.className == "WARRIOR" then
         local _, tanking = GetShapeshiftFormInfo(2) -- Defensive Stance
         return tanking
-    elseif className == "DRUID" then
+    elseif self.className == "DRUID" then
         local _, tanking = GetShapeshiftFormInfo(1) -- Bear/Dire Bear Form
         return tanking
-    elseif className == "PALADIN" then
-        return self:HasBuff(25780) -- Righteous Fury
+    elseif self.className == "PALADIN" then
+        self:GetActiveBuffs()
+        return self.activeBuffs[25780] ~= nil -- Righteous Fury
     end
+
     return false
 end
 
-function Damnation:HasBuff(spellId)
-    for i=1,40 do
-        local name, _, _, _, _, _, _, _, _, id = UnitBuff("player", i)
-        if id == spellId then
-            return true, name, i
+function Damnation:GetActiveBuffs()
+    if self.activeBuffs == nil then
+        self.activeBuffs = {}
+        for i=1,256 do
+            local name, _, _, _, _, _, _, _, _, spellID = UnitBuff("player", i)
+            if name == nil or spellID == nil then
+                break
+            end
+            self.activeBuffs[spellID] = {name = name, index = i}
         end
     end
-    return false, nil, nil
 end
 
-function Damnation:RemoveBuff(spellId)
-    local hasBuff, name, index = self:HasBuff(spellId)
-    if hasBuff then
-        CancelUnitBuff("player", index)
+function Damnation:RemoveBuff(spellID)
+    if InCombatLockdown() then
+        self.activeBuffs = nil
+        return false
+    end
+
+    self:GetActiveBuffs()
+    local activeBuff = self.activeBuffs[spellID]
+    if activeBuff ~= nil then
+        CancelUnitBuff("player", activeBuff.index)
         if self.db.profile.announce then
-            print(COLOR_GOLD..self:GetName()..COLOR_RESET.." has removed "..name..".")
+            print(COLOR_GOLD..self:GetName()..COLOR_RESET.." has removed "..activeBuff.name..".")
         end
     end
+    return true
 end
 
 function Damnation:ManageBuffs()
     if InCombatLockdown() then
+        self.activeBuffs = nil
         return
     end
 
     if self.db.profile.mode == "on" or (self.db.profile.mode == "auto" and self:IsTanking()) then
-        for k,v in ipairs(self.SalvationSpellIds) do self:RemoveBuff(v) end
+        -- Remove Salvation
+        for k,v in ipairs(self.SalvationSpellIDs) do
+            if self:RemoveBuff(v) == false then
+                break
+            end
+        end
+
+        -- Remove Intellect
         if self.db.profile.intellect then
-            for k,v in ipairs(self.IntellectSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.IntellectSpellIDs) do
+                if self:RemoveBuff(v) == false then
+                    break
+                end
+            end
         end
+
+        -- Remove Spirit
         if self.db.profile.spirit then
-            for k,v in ipairs(self.SpiritSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.SpiritSpellIDs) do
+                if self:RemoveBuff(v) == false then
+                    break
+                end
+            end
         end
+
+        -- Remove Wisdom
         if self.db.profile.wisdom then
-            for k,v in ipairs(self.WisdomSpellIds) do self:RemoveBuff(v) end
+            for k,v in ipairs(self.WisdomSpellIDs) do
+                if self:RemoveBuff(v) == false then
+                    break
+                end
+            end
         end
     end
+
+    self.activeBuffs = nil
 end
 
 function Damnation:UNIT_AURA(unit)
