@@ -76,11 +76,11 @@ function Damnation:GetActiveBuffs()
     if self.activeBuffs == nil then
         self.activeBuffs = {}
         for i=1,256 do
-            local name, _, _, _, _, _, _, _, _, spellID = UnitBuff("player", i)
-            if name == nil or spellID == nil then
+            local data = C_UnitAuras.GetBuffDataByIndex("player", i)
+            if data == nil or data.name == nil or data.spellId == nil then
                 break
             end
-            self.activeBuffs[spellID] = {name = name, index = i}
+            self.activeBuffs[data.spellId] = {name = data.name, index = i}
         end
     end
 end
