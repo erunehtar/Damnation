@@ -1,7 +1,7 @@
-## Interface: 11504
+## Interface: 11508, 20505
 ## Title: Damnation
 ## Notes: Blessing of Salvation management for tanks
-## Version: 2.2.0
+## Version: 3.0.0
 ## Author: Erunehtar
 ## SavedVariables: DamnationDB
 
@@ -16,5 +16,5 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 
+Data.lua
 Damnation.lua
-DamnationData.lua

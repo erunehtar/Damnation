@@ -1,164 +1,305 @@
-local addonName, addon = ...
-addon.Damnation = LibStub("AceAddon-3.0"):NewAddon("Damnation", "AceEvent-3.0")
+local addonName, addon = ... --- @cast addon Damnation
+local KnownGroups = addon.KnownGroups
+LibStub("AceAddon-3.0"):NewAddon(addon, addonName, "AceConsole-3.0", "AceEvent-3.0")
 
-local Damnation = addon.Damnation
+--- @class Damnation : AceAddon, AceConsole-3.0, AceEvent-3.0
+--- @field version string
+--- @field db Damnation.DB
+--- @field className string
+--- @field canTank boolean
+--- @field spells table<Damnation.SpellID, Damnation.GroupName>
+--- @field enabled table<Damnation.GroupName, boolean>
+--- @field OnInitialize fun(self: Damnation)
+--- @field OnEnable fun(self: Damnation)
+--- @field GetOptionsTable fun(self: Damnation): AceConfig.OptionsTable
+--- @field SetMode fun(self: Damnation, mode: OperatingMode)
+--- @field IsActive fun(self: Damnation): boolean
+--- @field IsTanking fun(self: Damnation): boolean
+--- @field TryRemoveBuff fun(self: Damnation, spellId: Damnation.SpellID): boolean
+--- @field ManageBuffs fun(self: Damnation, updateInfo: UnitAuraUpdateInfo?)
+--- @field Serialize fun(self: Damnation)
+--- @field Deserialize fun(self: Damnation)
 
-local COLOR_RED = "|cFFFF0000"
-local COLOR_GREEN = "|cFF1EFF00"
-local COLOR_BLUE = "|cFF0070DD"
-local COLOR_GOLD = "|cFFE6CC80"
-local COLOR_RESET = "|r"
+--- @class Damnation.DB : AceDBObject-3.0
+--- @field profile Damnation.DefaultProfile
 
--- declare defaults to be used in the DB
-local defaults = {
-    profile = {
+-- Lua functions
+local pcall = pcall
+local format = format
+local tostringall = tostringall
+local strupper = strupper
+local select = select
+local pairs = pairs
+local ipairs = ipairs
+
+-- WoW API functions
+local GetAddOnMetadata = C_AddOns.GetAddOnMetadata
+local UnitClass = UnitClass
+local GetShapeshiftFormInfo = GetShapeshiftFormInfo
+local InCombatLockdown = InCombatLockdown
+local GetPlayerAuraBySpellID = C_UnitAuras.GetPlayerAuraBySpellID
+local CancelSpellByID = C_Spell.CancelSpellByID
+
+--- @enum Color
+local Color = { --- @class Color.*
+    White = "ffffffff",
+    Red = "ffff0000",
+}
+
+--- @enum OperatingMode
+local OperatingMode = { --- @class OperatingMode.*
+    On = "on",
+    Auto = "auto",
+    Off = "off",
+}
+
+--- @class Damnation.DefaultProfile
+--- @field showWelcome boolean
+--- @field mode OperatingMode
+--- @field announceRemoved boolean
+--- @field announceCannotRemove boolean
+--- @field groups table<Damnation.GroupName, Damnation.SpellID[]>
+--- @field enabled table<Damnation.GroupName, boolean>
+
+-- Declare defaults to be used in the DB
+local defaults = { --- @type AceDB.Schema
+    profile = {    --- @type Damnation.DefaultProfile
         showWelcome = true,
-        mode = "auto",
-        announce = false,
-        intellect = false,
-        spirit = false,
-        wisdom = false
+        mode = OperatingMode.Auto,
+        --announce = false, -- deprecated
+        announceRemoved = false,
+        announceCannotRemove = true,
+        --intellect = false, -- deprecated
+        --spirit = false, -- deprecated
+        --wisdom = false, -- deprecated
+        groups = {},
+        enabled = {
+            [KnownGroups.Salvation] = true,
+            [KnownGroups.Wisdom] = false,
+            [KnownGroups.Intellect] = false,
+            [KnownGroups.Spirit] = false,
+        },
     }
 }
 
-function Damnation:OnInitialize()
-    self.db = LibStub("AceDB-3.0"):New(self:GetName().."DB", defaults, true)
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(self:GetName(), self:GetOptionsTable(), {"dmn", "damnation"})
+--- Format text with color codes.
+--- @param color Color The color code to use.
+--- @param fmt string The format string.
+--- @param ... any Arguments to format into the string.
+--- @return string result The colored formatted string.
+local function C(color, fmt, ...)
+    local success, text = pcall(format, fmt, tostringall(...))
+    if not success then
+        text = fmt
+    end
+    return "|c" .. color .. text .. "|r"
+end
 
-    local ACD = LibStub("AceConfigDialog-3.0")
-    ACD:AddToBlizOptions(self:GetName(), self:GetName(), nil, "general")
-    ACD:AddToBlizOptions(self:GetName(), "Profiles", self:GetName(), "profiles")
+--- Called directly after the addon code is fully loaded.
+function addon:OnInitialize()
+    self.version = GetAddOnMetadata(addonName, "version")
+    ---@diagnostic disable-next-line: assign-type-mismatch
+    self.db = LibStub("AceDB-3.0"):New(addonName .. "DB", defaults, true)
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, self:GetOptionsTable(), { "dmn", "damnation" })
+
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+    AceConfigDialog:AddToBlizOptions(addonName, addonName, nil, "general")
+    AceConfigDialog:AddToBlizOptions(addonName, "Profiles", addonName, "profiles")
+end
+
+--- Called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.
+function addon:OnEnable()
+    self.className = strupper(select(2, UnitClass("player")))
+    self.canTank = self.className == "WARRIOR" or self.className == "DRUID" or self.className == "PALADIN"
+
+    self:Deserialize()
+    self:SetMode(self.db.profile.mode)
+
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", function() self:ManageBuffs() end)
+    self:RegisterEvent("PLAYER_LEAVING_WORLD", function() self:Serialize() end)
+    self:RegisterEvent("UNIT_AURA", function(event, unitTarget, updateInfo) self:ManageBuffs(updateInfo) end)
+    self:RegisterEvent("PLAYER_REGEN_ENABLED", function() self:ManageBuffs() end)
+    self:RegisterEvent("UPDATE_SHAPESHIFT_COOLDOWN", function() self:ManageBuffs() end)
 
     if self.db.profile.showWelcome then
-        print(COLOR_GOLD..self:GetName()..COLOR_RESET.." v"..GetAddOnMetadata(self:GetName(), "version").." loaded")
+        self:Printf("v%s loaded.", self.version)
     end
 end
 
-function Damnation:OnEnable()
-    self.className = select(2, UnitClass("player"))
-    self.canTank = self.className == "WARRIOR" or self.className == "DRUID" or self.className == "PALADIN"
-    self:SetMode(self.db.profile.mode)
+--- Set the operating mode of the addon.
+--- @param mode OperatingMode The operating mode to set.
+function addon:SetMode(mode)
+    self.db.profile.mode = mode
+    self:ManageBuffs()
 end
 
-function Damnation:OnDisable()
+--- Determine if the buffs management is currently active based on the operating mode.
+--- @return boolean isActive True if the buffs management is active, false otherwise.
+function addon:IsActive()
+    return self.db.profile.mode == OperatingMode.On or (self.db.profile.mode == OperatingMode.Auto and self:IsTanking())
 end
 
-function Damnation:SetMode(mode)
-    self:UnregisterEvent("UNIT_AURA")
-    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-    if mode == "on" or (mode == "auto" and self.canTank) then
-        self:RegisterEvent("UNIT_AURA")
-        self:RegisterEvent("PLAYER_REGEN_ENABLED")
-        self:ManageBuffs()
-    end
-end
-
-function Damnation:IsTanking()
+--- Determine if the player is currently in tanking role.
+--- @return boolean isTanking True if the player is tanking, false otherwise.
+function addon:IsTanking()
     if not self.canTank then
         return false
     end
 
     if self.className == "WARRIOR" then
-        local _, tanking = GetShapeshiftFormInfo(2) -- Defensive Stance
-        return tanking
+        -- Defensive Stance
+        return (select(2, GetShapeshiftFormInfo(2)))
     elseif self.className == "DRUID" then
-        local _, tanking = GetShapeshiftFormInfo(1) -- Bear/Dire Bear Form
-        return tanking
+        -- Bear/Dire Bear Form
+        return (select(2, GetShapeshiftFormInfo(1)))
     elseif self.className == "PALADIN" then
-        self:GetActiveBuffs()
-        return self.activeBuffs[25780] ~= nil -- Righteous Fury
+        -- Righteous Fury
+        return GetPlayerAuraBySpellID(addon.righteousFury) ~= nil
     end
 
     return false
 end
 
-function Damnation:GetActiveBuffs()
-    if self.activeBuffs == nil then
-        self.activeBuffs = {}
-        for i=1,256 do
-            local data = C_UnitAuras.GetBuffDataByIndex("player", i)
-            if data == nil or data.name == nil or data.spellId == nil then
-                break
-            end
-            self.activeBuffs[data.spellId] = {name = data.name, index = i}
-        end
-    end
-end
-
-function Damnation:RemoveBuff(spellID)
-    if InCombatLockdown() then
-        self.activeBuffs = nil
+--- Try to remove a buff by its spell ID.
+--- @param spellId integer The spell ID of the buff to remove.
+--- @return boolean success True if the buff was removed, false otherwise.
+function addon:TryRemoveBuff(spellId)
+    local auraData = GetPlayerAuraBySpellID(spellId)
+    if not auraData then
         return false
     end
 
-    self:GetActiveBuffs()
-    local activeBuff = self.activeBuffs[spellID]
-    if activeBuff ~= nil then
-        CancelUnitBuff("player", activeBuff.index)
-        if self.db.profile.announce then
-            print(COLOR_GOLD..self:GetName()..COLOR_RESET.." has removed "..activeBuff.name..".")
+    if InCombatLockdown() then
+        if self.db.profile.announceCannotRemove then
+            self:Printf(C(Color.Red, "%s cannot be removed in combat!", strupper(auraData.name)))
         end
+        return false
     end
+
+    CancelSpellByID(spellId)
+
+    if self.db.profile.announceRemoved then
+        self:Printf(C(Color.White, "%s removed.", strupper(auraData.name)))
+    end
+
     return true
 end
 
-function Damnation:ManageBuffs()
-    if InCombatLockdown() then
-        self.activeBuffs = nil
+--- Manage buffs based on the current mode and update information.
+--- @param updateInfo UnitAuraUpdateInfo? Information about aura updates, if available.
+function addon:ManageBuffs(updateInfo)
+    if not self:IsActive() then
         return
     end
 
-    if self.db.profile.mode == "on" or (self.db.profile.mode == "auto" and self:IsTanking()) then
-        -- Remove Salvation
-        for k,v in ipairs(self.SalvationSpellIDs) do
-            if self:RemoveBuff(v) == false then
-                break
+    if updateInfo then
+        -- Remove added buffs in enabled groups
+        for _, addedAura in ipairs(updateInfo.addedAuras or {}) do
+            local groupName = self.spells[addedAura.spellId]
+            if groupName and self.enabled[groupName] then
+                self:TryRemoveBuff(addedAura.spellId)
             end
         end
-
-        -- Remove Intellect
-        if self.db.profile.intellect then
-            for k,v in ipairs(self.IntellectSpellIDs) do
-                if self:RemoveBuff(v) == false then
-                    break
-                end
-            end
-        end
-
-        -- Remove Spirit
-        if self.db.profile.spirit then
-            for k,v in ipairs(self.SpiritSpellIDs) do
-                if self:RemoveBuff(v) == false then
-                    break
-                end
-            end
-        end
-
-        -- Remove Wisdom
-        if self.db.profile.wisdom then
-            for k,v in ipairs(self.WisdomSpellIDs) do
-                if self:RemoveBuff(v) == false then
-                    break
+    else
+        -- Remove first found buff in all enabled groups
+        for groupName, spellIds in pairs(self.groups) do
+            if self.enabled[groupName] then
+                for _, spellId in ipairs(spellIds) do
+                    if self:TryRemoveBuff(spellId) then
+                        break -- if we removed one rank, no need to check other ranks
+                    end
                 end
             end
         end
     end
-
-    self.activeBuffs = nil
 end
 
-function Damnation:UNIT_AURA(unit)
-    self:ManageBuffs()
+--- Serialize custom groups and enabled settings to the database.
+function addon:Serialize()
+    -- Serialize custom groups to the database
+    self.db.profile.groups = {}
+    for groupName, spellIds in pairs(self.groups or {}) do
+        if not self.isKnownGroup[groupName] then
+            local group = {}
+            for _, spellId in ipairs(spellIds) do
+                tinsert(group, spellId)
+            end
+            if #group > 0 then
+                self.db.profile.groups[groupName] = group
+            end
+        end
+    end
+
+    -- Serialize enabled settings
+    self.db.profile.enabled = {}
+    for groupName, enabled in pairs(self.enabled or {}) do
+        self.db.profile.enabled[groupName] = enabled
+    end
 end
 
-function Damnation:PLAYER_REGEN_ENABLED()
-    self:ManageBuffs()
+--- Deserialize custom groups and enabled settings from the database.
+function addon:Deserialize()
+    -- Load custom groups from the database
+    self.groups = self.groups or {}
+    for groupName, spellIds in pairs(self.db.profile.groups or {}) do
+        if type(groupName) == "string" and groupName ~= "" and type(spellIds) == "table" then
+            local group = {}
+            for _, spellId in ipairs(spellIds) do
+                if type(spellId) == "number" and spellId % 1 == 0 and spellId > 0 then
+                    tinsert(group, spellId)
+                end
+            end
+            if #group > 0 then
+                self.groups[groupName] = group
+            end
+        end
+    end
+
+    -- Build reverse lookup table for spells to groups
+    self.spells = self.spells or {}
+    for groupName, spellIds in pairs(self.groups) do
+        for _, spellId in ipairs(spellIds) do
+            self.spells[spellId] = groupName
+        end
+    end
+
+    -- Load enabled settings
+    self.enabled = self.enabled or {}
+    for groupName, enabled in pairs(self.db.profile.enabled or {}) do
+        if type(groupName) == "string" and groupName ~= "" and type(enabled) == "boolean" then
+            self.enabled[groupName] = enabled
+        end
+    end
+
+    -- Migrate deprecated settings
+    if type(self.db.profile.announce) == "boolean" then
+        self.db.profile.announceRemoved = self.db.profile.announce
+        ---@diagnostic disable-next-line: inject-field
+        self.db.profile.announce = nil
+    end
+    if type(self.db.profile.wisdom) == "boolean" then
+        self.enabled[KnownGroups.Wisdom] = self.db.profile.wisdom
+        ---@diagnostic disable-next-line: inject-field
+        self.db.profile.wisdom = nil
+    end
+    if type(self.db.profile.intellect) == "boolean" then
+        self.enabled[KnownGroups.Intellect] = self.db.profile.intellect
+        ---@diagnostic disable-next-line: inject-field
+        self.db.profile.intellect = nil
+    end
+    if type(self.db.profile.spirit) == "boolean" then
+        self.enabled[KnownGroups.Spirit] = self.db.profile.spirit
+        ---@diagnostic disable-next-line: inject-field
+        self.db.profile.spirit = nil
+    end
 end
 
-function Damnation:GetOptionsTable()
+--- Get the options table for AceConfig.
+--- @return AceConfig.OptionsTable options The options table.
+function addon:GetOptionsTable()
     return {
         type = "group",
-        name = self:GetName().." v"..GetAddOnMetadata(self:GetName(), "version"),
+        name = addonName .. " v" .. self.version,
         args = {
             general = {
                 name = "General",
@@ -171,8 +312,12 @@ function Damnation:GetOptionsTable()
                         desc = "Toggle showing welcome message upon logging.",
                         order = 0,
                         width = 1.1,
-                        get = function(info) return self.db.profile.showWelcome end,
-                        set = function(info, value) self.db.profile.showWelcome = value end
+                        get = function(info)
+                            return self.db.profile.showWelcome
+                        end,
+                        set = function(info, value)
+                            self.db.profile.showWelcome = value
+                        end
                     },
                     spacing2 = {
                         type = "description",
@@ -187,14 +332,15 @@ function Damnation:GetOptionsTable()
                         width = 1.1,
                         style = "dropdown",
                         values = {
-                            ["on"] = "Always",
-                            ["auto"] = "When Tanking",
-                            ["off"] = "Never"
+                            [OperatingMode.On] = "Always",
+                            [OperatingMode.Auto] = "When Tanking",
+                            [OperatingMode.Off] = "Never"
                         },
-                        sorting = {"on", "auto", "off"},
-                        get = function(info) return self.db.profile.mode end,
+                        sorting = { OperatingMode.On, OperatingMode.Auto, OperatingMode.Off },
+                        get = function(info)
+                            return self.db.profile.mode
+                        end,
                         set = function(info, value)
-                            self.db.profile.mode = value
                             self:SetMode(value)
                         end
                     },
@@ -203,32 +349,50 @@ function Damnation:GetOptionsTable()
                         name = "",
                         order = 3
                     },
-                    announce = {
+                    announceRemoved = {
                         type = "toggle",
-                        name = "Announcements",
+                        name = "Announce Removed",
                         desc = "Toggle announcing when a buff is removed.",
                         order = 4,
-                        get = function(info) return self.db.profile.announce end,
-                        set = function(info, value) self.db.profile.announce = value end
+                        get = function(info)
+                            return self.db.profile.announceRemoved
+                        end,
+                        set = function(info, value)
+                            self.db.profile.announceRemoved = value
+                        end
+                    },
+                    announceCannotRemove = {
+                        type = "toggle",
+                        name = "Announce Gained",
+                        desc = "Toggle announcing when a buff is gained in combat (cannot be removed by addon).",
+                        order = 5,
+                        get = function(info)
+                            return self.db.profile.announceCannotRemove
+                        end,
+                        set = function(info, value)
+                            self.db.profile.announceCannotRemove = value
+                        end
                     },
                     spacing4 = {
                         type = "description",
                         name = "",
-                        order = 5
+                        order = 6
                     },
                     additionalBuffsHeader = {
                         type = "header",
                         name = "Additional Buffs to Remove",
-                        order = 6
+                        order = 7
                     },
                     intellect = {
                         type = "toggle",
                         name = "Arcane Intellect",
                         desc = "All ranks of Arcane Intellect and Arcane Brilliance.",
-                        order = 7,
-                        get = function(info) return self.db.profile.intellect end,
+                        order = 8,
+                        get = function(info)
+                            return self.enabled[KnownGroups.Intellect]
+                        end,
                         set = function(info, value)
-                            self.db.profile.intellect = value
+                            self.enabled[KnownGroups.Intellect] = value
                             self:ManageBuffs()
                         end
                     },
@@ -236,10 +400,12 @@ function Damnation:GetOptionsTable()
                         type = "toggle",
                         name = "Divine Spirit",
                         desc = "All ranks of Divine Spirit and Prayer of Spirit.",
-                        order = 8,
-                        get = function(info) return self.db.profile.spirit end,
+                        order = 9,
+                        get = function(info)
+                            return self.enabled[KnownGroups.Spirit]
+                        end,
                         set = function(info, value)
-                            self.db.profile.spirit = value
+                            self.enabled[KnownGroups.Spirit] = value
                             self:ManageBuffs()
                         end
                     },
@@ -247,10 +413,12 @@ function Damnation:GetOptionsTable()
                         type = "toggle",
                         name = "Blessing of Wisdom",
                         desc = "All ranks of Blessing of Wisdom and Greater Blessing of Wisdom.",
-                        order = 9,
-                        get = function(info) return self.db.profile.wisdom end,
+                        order = 10,
+                        get = function(info)
+                            return self.enabled[KnownGroups.Wisdom]
+                        end,
                         set = function(info, value)
-                            self.db.profile.wisdom = value
+                            self.enabled[KnownGroups.Wisdom] = value
                             self:ManageBuffs()
                         end
                     }
