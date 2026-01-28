@@ -4,6 +4,7 @@
 ## Version: 3.0.0
 ## Author: Erunehtar
 ## SavedVariables: DamnationDB
+## IconTexture: Interface\AddOns\Damnation\Textures\Damnation-128x128.png
 
 # Libraries
 Libs\LibStub\LibStub.lua
