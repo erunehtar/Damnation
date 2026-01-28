@@ -2,6 +2,15 @@ local addonName, addon = ...
 local KnownGroups = addon.KnownGroups
 local AceGUI = LibStub("AceGUI-3.0")
 
+local pairs = pairs
+local ipairs = ipairs
+local tonumber = tonumber
+local tostring = tostring
+local tinsert = table.insert
+local tconcat = table.concat
+local strlower = string.lower
+local gmatch = string.gmatch
+
 --[[
 AceGUI Widget: Damnation_BuffGroupsWidget
 This widget will be used as the dynamic buff group editor in the options panel.
@@ -67,9 +76,9 @@ end
 local function SpellIdsToString(spellIds)
     local t = {}
     for _, id in ipairs(spellIds) do
-        table.insert(t, tostring(id))
+        tinsert(t, tostring(id))
     end
-    return table.concat(t, ", ")
+    return tconcat(t, ", ")
 end
 
 -- Helper: Validate group name
@@ -89,12 +98,12 @@ end
 local function ValidateSpellIds(str)
     if not str or str == "" then return false, "Spell IDs required" end
     local t = {}
-    for s in string.gmatch(str, "[^,%s]+") do
+    for s in gmatch(str, "[^,%s]+") do
         local n = tonumber(s)
         if not n or n < 1 or n % 1 ~= 0 then
             return false, "Spell IDs must be integers > 0"
         end
-        table.insert(t, n)
+        tinsert(t, n)
     end
     if #t == 0 then return false, "No valid spell IDs" end
     return true, t
@@ -159,7 +168,7 @@ function addon:InjectBuffGroupsAceGUI(container)
         end
     end
     table.sort(customGroups, function(a, b)
-        return a:lower() < b:lower()
+        return strlower(a) < strlower(b)
     end)
 
     for _, groupName in ipairs(customGroups) do
@@ -187,11 +196,12 @@ function addon:InjectBuffGroupsAceGUI(container)
             local ok, err = ValidateGroupName(text, groupName)
             if ok then
                 if text ~= groupName then
-                    self.groups[text] = self.groups[groupName]
-                    self.groups[groupName] = nil
-                    self.enabled[text] = self.enabled[groupName]
-                    self.enabled[groupName] = nil
-                    self:Serialize()
+                    addon.groups[text] = addon.groups[groupName]
+                    addon.groups[groupName] = nil
+                    addon.enabled[text] = addon.enabled[groupName]
+                    addon.enabled[groupName] = nil
+                    addon:Serialize()
+                    addon:Deserialize()
                     self:InjectBuffGroupsAceGUI(container)
                 end
             else
@@ -213,8 +223,9 @@ function addon:InjectBuffGroupsAceGUI(container)
             end
             local ok, result = ValidateSpellIds(text)
             if ok then
-                self.groups[groupName] = result
-                self:Serialize()
+                addon.groups[groupName] = result
+                addon:Serialize()
+                addon:Deserialize()
                 self:InjectBuffGroupsAceGUI(container)
             else
                 widget:SetText(SpellIdsToString(spellIds))
@@ -233,8 +244,10 @@ function addon:InjectBuffGroupsAceGUI(container)
         enableBox:SetValue(self.enabled[groupName])
         enableBox:SetWidth(enabledWidth - spacerWidth)
         enableBox:SetCallback("OnValueChanged", function(widget, event, value)
-            self.enabled[groupName] = value
-            self:Serialize()
+            addon.enabled[groupName] = value
+            addon:Serialize()
+            addon:Deserialize()
+            self:InjectBuffGroupsAceGUI(container)
         end)
         row:AddChild(enableBox)
 
@@ -244,9 +257,10 @@ function addon:InjectBuffGroupsAceGUI(container)
         deleteBtn:SetWidth(deleteWidth)
         deleteBtn:SetDisabled(IsKnownGroup(groupName))
         deleteBtn:SetCallback("OnClick", function()
-            self.groups[groupName] = nil
-            self.enabled[groupName] = nil
-            self:Serialize()
+            addon.groups[groupName] = nil
+            addon.enabled[groupName] = nil
+            addon:Serialize()
+            addon:Deserialize()
             self:InjectBuffGroupsAceGUI(container)
         end)
         row:AddChild(deleteBtn)
@@ -267,10 +281,11 @@ function addon:InjectBuffGroupsAceGUI(container)
             idx = idx + 1
             name = base .. idx
         end
-        addon.groups[name] = { 1 } -- Default spell ID for testing
-        addon.enabled[name] = false
+        addon.groups[name] = { 1 }
+        addon.enabled[name] = true
         addon:Serialize()
-        addon:InjectBuffGroupsAceGUI(container)
+        addon:Deserialize()
+        self:InjectBuffGroupsAceGUI(container)
     end)
     container:AddChild(addBtn)
 end
