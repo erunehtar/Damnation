@@ -60,12 +60,6 @@ if WOW_PROJECT_ID == WOW_PROJECT_CLASSIC then
         27841, -- Divine Spirit (Rank 4)
         27681, -- Prayer of Spirit
     }
-
-    addon.groups["Warrior Test"] = {
-        18499, -- Berserker Rage
-        29131, -- Bloodrage
-        25289, -- Battle Shout (Rank 7)
-    }
 elseif WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC then
     addon.righteousFury = 25780 -- Righteous Fury
 
