@@ -380,48 +380,21 @@ function addon:GetOptionsTable()
                     },
                     additionalBuffsHeader = {
                         type = "header",
-                        name = "Additional Buffs to Remove",
+                        name = "Buff Groups To Remove",
                         order = 7
                     },
-                    intellect = {
-                        type = "toggle",
-                        name = "Arcane Intellect",
-                        desc = "All ranks of Arcane Intellect and Arcane Brilliance.",
+                    description = {
+                        type = "description",
+                        name = "When removing buffs, the addon checks every group and stops searching that group after removing the first buff it finds. For this reason, it is recommended to order spell IDs from highest to lowest priority.\n\nYou can add/remove, or enable/disable groups as needed.",
                         order = 8,
-                        get = function(info)
-                            return self.enabled[KnownGroups.Intellect]
-                        end,
-                        set = function(info, value)
-                            self.enabled[KnownGroups.Intellect] = value
-                            self:ManageBuffs()
-                        end
                     },
-                    spirit = {
-                        type = "toggle",
-                        name = "Divine Spirit",
-                        desc = "All ranks of Divine Spirit and Prayer of Spirit.",
+                    buffGroupsDynamic = {
+                        type = "description",
+                        name = "Buff Groups",
                         order = 9,
-                        get = function(info)
-                            return self.enabled[KnownGroups.Spirit]
-                        end,
-                        set = function(info, value)
-                            self.enabled[KnownGroups.Spirit] = value
-                            self:ManageBuffs()
-                        end
+                        width = "full",
+                        dialogControl = "Damnation_BuffGroupsWidget",
                     },
-                    wisdom = {
-                        type = "toggle",
-                        name = "Blessing of Wisdom",
-                        desc = "All ranks of Blessing of Wisdom and Greater Blessing of Wisdom.",
-                        order = 10,
-                        get = function(info)
-                            return self.enabled[KnownGroups.Wisdom]
-                        end,
-                        set = function(info, value)
-                            self.enabled[KnownGroups.Wisdom] = value
-                            self:ManageBuffs()
-                        end
-                    }
                 }
             },
             profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
