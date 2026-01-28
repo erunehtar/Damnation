@@ -21,7 +21,7 @@ local Version = 5
 
 local function OnAcquire(self)
     --self:SetWidth(600)
-    self:SetHeight(300)
+    self:SetHeight(250)
     self:SetLayout("Fill")
     if addon and addon.InjectBuffGroupsAceGUI then
         addon:InjectBuffGroupsAceGUI(self)
